@@ -117,10 +117,11 @@ class Translator(object):
         def unbottle(m):
             return m.view(beamSize, batchSize, -1)
 
-        for i in range(self.opt.max_sent_length):
+        while True:
+        # while i < self.opt.max_sent_length:
             if all((b.done() for b in beam)):
                 break
-
+            
             # Construct batch x beam_size nxt words.
             # Get all the pending current beam words and arrange for forward.
             inp = var(torch.stack([b.getCurrentState() for b in beam])
@@ -156,9 +157,12 @@ class Translator(object):
 
             # (c) Advance each beam.
             for j, b in enumerate(beam):
-                b.advance(out[:, j],  unbottle(attn["std"]).data[:, j])
+                b.advance(out[:, j],  unbottle(attn["std"]).data[:, j],
+                          i, self.opt.max_sent_length)
                 decStates.beamUpdate_(j, b.getCurrentOrigin(), beamSize)
             i += 1
+            # if i == 2 * self.opt.max_sent_length:
+            #     break
 
         if "tgt" in batch.__dict__:
             allGold = self._runTarget(batch, dataset)

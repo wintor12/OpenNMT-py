@@ -52,7 +52,7 @@ class Beam(object):
         "Get the backpointers for the current timestep."
         return self.prevKs[-1]
 
-    def advance(self, wordLk, attnOut):
+    def advance(self, wordLk, attnOut, k, max_len):
         """
         Given prob over words for every last beam `wordLk` and attention
         `attnOut`: Compute and update the beam search.
@@ -92,13 +92,18 @@ class Beam(object):
         if self.globalScorer is not None:
             self.globalScorer.updateGlobalState(self)
 
-        for i in range(self.nextYs[-1].size(0)):
-            if self.nextYs[-1][i] == self._eos:
-                s = self.scores[i]
-                if self.globalScorer is not None:
-                    globalScores = self.globalScorer.score(self, self.scores)
-                    s = globalScores[i]
-                self.finished.append((s, len(self.nextYs) - 1, i))
+        if k == max_len - 1:
+            self.nextYs[-1][0] = self.vocab.stoi[onmt.IO.EOS_WORD]
+
+        src_len = attnOut.size(1)
+        if len(self.nextYs) > src_len // 3:
+            for i in range(self.nextYs[-1].size(0)):
+                if self.nextYs[-1][i] == self._eos:
+                    s = self.scores[i]
+                    if self.globalScorer is not None:
+                        globalScores = self.globalScorer.score(self, self.scores)
+                        s = globalScores[i]
+                    self.finished.append((s, len(self.nextYs) - 1, i))
 
         # End condition is when top-of-beam is EOS and no global score.
         if self.nextYs[-1][0] == self.vocab.stoi[onmt.IO.EOS_WORD]:
