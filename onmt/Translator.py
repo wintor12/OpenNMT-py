@@ -49,11 +49,11 @@ class Translator(object):
                 tokens = tokens[:-1]
                 break
 
-        if self.opt.replace_unk:
+        if self.opt.replace_unk and attn is not None:
             for i in range(len(tokens)):
-                if tokens[i] == onmt.IO.UNK:
+                if tokens[i] == vocab.itos[onmt.IO.UNK]:
                     _, maxIndex = attn[i].max(0)
-                    tokens[i] = src[maxIndex[0]]
+                    tokens[i] = self.fields["src"].vocab.itos[src[maxIndex[0]]]
         return tokens
 
     def _runTarget(self, batch, data):
@@ -160,7 +160,7 @@ class Translator(object):
                 b.advance(out[:, j],  unbottle(attn["std"]).data[:, j],
                           i, self.opt.max_sent_length)
                 decStates.beamUpdate_(j, b.getCurrentOrigin(), beamSize)
-            i += 1
+
             # if i == 2 * self.opt.max_sent_length:
             #     break
 
@@ -173,7 +173,7 @@ class Translator(object):
         allHyps, allScores, allAttn = [], [], []
         for b in beam:
             n_best = self.opt.n_best
-            scores, ks = b.sortFinished()
+            scores, ks = b.sortFinished(minimum=n_best)
             hyps, attn = [], []
             for i, (times, k) in enumerate(ks[:n_best]):
                 hyp, att = b.getHyp(times, k)
